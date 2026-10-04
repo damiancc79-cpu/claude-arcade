@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>ゲームセンター — Arcade Floor</title>
+<style>
+  :root{
+    --ink:#eef1ff; --dim:#949ccb; --accent:#ff3d8b; --accent2:#37e6ff; --gold:#ffd166;
+    --panel:rgba(10,8,26,.74); --edge:rgba(150,160,255,.22);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%;overflow:hidden;background:#04030c}
+  body{
+    font-family:ui-monospace,"SF Mono",Menlo,Consolas,monospace;color:var(--ink);
+    -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;
+  }
+  canvas{display:block;width:100%;height:100%;touch-action:none}
+  #hud{position:fixed;inset:0;pointer-events:none}
+  .panel{
+    position:absolute;background:var(--panel);border:1px solid var(--edge);border-radius:12px;
+    padding:11px 14px;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.55);
+  }
+  h4{font-size:10px;letter-spacing:2.5px;color:var(--accent);margin-bottom:8px;font-weight:600}
+
+  /* title */
+  #title{top:16px;left:16px}
+  #title .jp{font-size:19px;letter-spacing:5px;color:#fff;text-shadow:0 0 16px var(--accent)}
+  #title .en{font-size:9.5px;letter-spacing:3px;color:var(--dim);margin-top:4px}
+
+  /* controls */
+  #keys{bottom:16px;left:16px;font-size:11px;line-height:1.9}
+  kbd{display:inline-block;min-width:19px;text-align:center;padding:1px 5px;margin-right:6px;
+    background:rgba(255,255,255,.09);border:1px solid var(--edge);border-radius:4px;
+    font-size:10px;color:#fff;font-family:inherit}
+  #keys span{color:var(--dim)}
+
+  /* right panel */
+  #tools{top:16px;right:16px;width:196px;pointer-events:auto}
+  .btnrow{display:flex;gap:6px;margin-bottom:6px}
+  button{
+    flex:1;font-family:inherit;font-size:10px;letter-spacing:1.2px;color:var(--ink);
+    background:rgba(255,255,255,.06);border:1px solid var(--edge);border-radius:7px;
+    padding:8px 4px;cursor:pointer;transition:.15s
+  }
+  button:hover{background:rgba(255,255,255,.14);color:#fff}
+  button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+  .stat{display:flex;justify-content:space-between;font-size:10px;color:var(--dim);
+    letter-spacing:1px;margin-top:7px}
+  .stat b{color:var(--accent2);font-weight:600}
+
+  /* crosshair */
+  #cross{position:absolute;top:50%;left:50%;width:16px;height:16px;margin:-8px 0 0 -8px;opacity:.55}
+  #cross::before,#cross::after{content:'';position:absolute;background:#fff;border-radius:2px}
+  #cross::before{left:7px;top:0;width:2px;height:16px}
+  #cross::after{top:7px;left:0;height:2px;width:16px}
+  #cross.hide{display:none}
+
+  /* click-to-enter overlay */
+  #enter{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;background:rgba(4,3,12,.55);backdrop-filter:blur(3px);
+    pointer-events:auto;cursor:pointer;
+  }
+  #enter.hide{display:none}
+  #enter .big{font-size:15px;letter-spacing:6px;color:#fff;text-shadow:0 0 22px var(--accent2)}
+  #enter .sub{font-size:10.5px;letter-spacing:2.5px;color:var(--dim)}
+  #enter .ring{width:54px;height:54px;border:2px solid var(--accent2);border-radius:50%;
+    box-shadow:0 0 26px var(--accent2);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{transform:scale(1);opacity:.85}50%{transform:scale(1.13);opacity:.4}}
+
+  #fps{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);
+    font-size:10px;color:rgba(148,156,203,.55);letter-spacing:1.5px}
+
+  @media (max-width:900px){
+    #keys{display:none}
+    #tools{width:150px;padding:8px 10px}
+    #title .jp{font-size:15px;letter-spacing:3px}
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="panel" id="title">
+    <div class="jp">ゲームセンター</div>
+    <div class="en">CRANE GAME FLOOR &nbsp;·&nbsp; 1F</div>
+  </div>
+
+  <div class="panel" id="keys">
+    <h4>CONTROLS</h4>
+    <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>walk the floor</span></div>
+    <div><kbd>mouse</kbd><span>look around</span></div>
+    <div><kbd>⇧</kbd><span>hurry &nbsp; <kbd>ESC</kbd>release cursor</span></div>
+    <div><kbd>V</kbd><span>walk / overview camera</span></div>
+    <div><kbd>G</kbd><span>show machine bays</span></div>
+  </div>
+
+  <div class="panel" id="tools">
+    <h4>FLOOR PLAN</h4>
+    <div class="btnrow">
+      <button id="bView">OVERVIEW</button>
+      <button id="bSlots">BAYS</button>
+    </div>
+    <div class="btnrow"><button id="bLights">NIGHT / DAY</button></div>
+    <div class="stat"><span>MACHINE BAYS</span><b id="sSlots">0</b></div>
+    <div class="stat"><span>FILLED</span><b id="sFilled">0</b></div>
+    <div class="stat"><span>GACHA UNITS</span><b id="sGacha">0</b></div>
+  </div>
+
+  <div id="cross" class="hide"></div>
+
+  <div id="enter">
+    <div class="ring"></div>
+    <div class="big">いらっしゃいませ</div>
+    <div class="sub">CLICK TO ENTER THE ARCADE</div>
+  </div>
+
+  <div id="fps">—</div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
